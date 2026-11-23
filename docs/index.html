@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!--
+  Copyright 2026 Ed Coffey
+
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MC-107 Firmware Patcher (MC-101 v1.82)</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #181b24;
+      --border: #2a2f3d;
+      --text: #e6e9ef;
+      --muted: #9aa3b2;
+      --accent: #f97316;
+      --accent-hover: #fb923c;
+      --ok: #22c55e;
+      --err: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      padding: 2rem 1rem;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    h1 { margin: 0 0 0.4rem; font-size: 1.75rem; }
+    .sub { color: var(--muted); margin: 0 0 1.75rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.4rem 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .dropzone:hover, .dropzone.drag { border-color: var(--accent); }
+    input[type="file"] { display: none; }
+    .btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #111;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.1rem;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.95rem;
+      margin-right: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn.secondary {
+      background: #252a38;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .status {
+      margin-top: 1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.88rem;
+      white-space: pre-wrap;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: #10131a;
+      border: 1px solid var(--border);
+    }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+    code {
+      background: #10131a;
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    ol { padding-left: 1.25rem; margin: 0.5rem 0 0; }
+    li { margin-bottom: 0.4rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>MC-107 Firmware Patcher</h1>
+    <p class="sub">
+      100% client-side in-browser patcher for Roland MC-101 v1.82. No vendor files are uploaded or distributed.
+    </p>
+
+    <div class="card">
+      <h2>Step 1 — Patch Stock <code>RPG69_C0A_up.bin</code> with <code>mc-101-boot</code></h2>
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="fwFile" accept=".bin" />
+        <div id="fileLabel">Click or drop stock <code>RPG69_C0A_up.bin</code> (3,499,600 bytes) here</div>
+      </label>
+      <div style="margin-top: 0.75rem;">
+        <button class="btn" id="patchBtn" disabled>Patch &amp; Download RPG69_C0A_up.bin</button>
+      </div>
+      <div class="status" id="status">Waiting for stock RPG69_C0A_up.bin...</div>
+    </div>
+
+    <div class="card">
+      <h2>Step 2 — Download SD Card Runtime Files</h2>
+      <p style="margin-top:0;color:var(--muted)">
+        Place these on your MC-101 SD card under <code>/firmware/</code>:
+      </p>
+      <a class="btn secondary" href="firmware.ini" download="firmware.ini">firmware.ini → /firmware/firmware.ini</a>
+      <a class="btn secondary" href="mc107-0.pat" download="mc107-0.pat">mc107-0.pat → /firmware/mc107/mc107-0.pat</a>
+      <a class="btn secondary" href="mc107-1.pat" download="mc107-1.pat">mc107-1.pat → /firmware/mc107/mc107-1.pat</a>
+    </div>
+
+    <div class="card">
+      <h2>Step 3 — Flash Bootloader Once &amp; Boot MC-107</h2>
+      <ol>
+        <li>Copy the patched <code>RPG69_C0A_up.bin</code> to the root of your SD card.</li>
+        <li>Hold <code>[SHIFT]</code> while powering on to flash <code>RPG69_C0A_up.bin</code> (leave <code>RPG69_C1A</code> stock).</li>
+        <li>Delete <code>RPG69_C0A_up.bin</code> from the SD root, then power on normally to boot MC-107 from <code>/firmware/</code>.</li>
+        <li>Hold <code>[PROJECT]</code> at power-on anytime to enter high-speed USB Mass Storage mode for SD card updates.</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    const fwInput = document.getElementById("fwFile");
+    const dropzone = document.getElementById("dropzone");
+    const fileLabel = document.getElementById("fileLabel");
+    const patchBtn = document.getElementById("patchBtn");
+    const statusEl = document.getElementById("status");
+
+    let stockBuf = null;
+    let xorpatchBuf = null;
+
+    function setStatus(msg, cls = "") {
+      statusEl.className = "status " + cls;
+      statusEl.textContent = msg;
+    }
+
+    function toHex(u8) {
+      return Array.from(u8).map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function loadXorpatch() {
+      const resp = await fetch("mc101-boot.xorpatch");
+      if (!resp.ok) throw new Error("Failed to fetch mc101-boot.xorpatch (" + resp.status + ")");
+      xorpatchBuf = new Uint8Array(await resp.arrayBuffer());
+      const magic = String.fromCharCode(...xorpatchBuf.slice(0, 4));
+      if (magic !== "MC1X") throw new Error("Invalid xorpatch magic: " + magic);
+    }
+
+    async function handleFile(file) {
+      if (!file) return;
+      fileLabel.textContent = `${file.name} (${file.size.toLocaleString()} bytes)`;
+      stockBuf = new Uint8Array(await file.arrayBuffer());
+      try {
+        if (!xorpatchBuf) await loadXorpatch();
+        const dv = new DataView(xorpatchBuf.buffer, xorpatchBuf.byteOffset, xorpatchBuf.byteLength);
+        const expSha = toHex(xorpatchBuf.slice(8, 40));
+        const gotSha = toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", stockBuf)));
+        if (gotSha !== expSha) {
+          patchBtn.disabled = true;
+          setStatus(
+            `SHA-256 mismatch!\nExpected stock v1.82 RPG69_C0A_up.bin:\n  ${expSha}\nGot:\n  ${gotSha}`,
+            "err"
+          );
+          return;
+        }
+        const bootLen = dv.getUint32(152, true);
+        setStatus(
+          `Verified stock MC-101 v1.82 RPG69_C0A_up.bin (SHA-256 OK).\nReady to apply mc-101-boot (${bootLen.toLocaleString()} B).`,
+          "ok"
+        );
+        patchBtn.disabled = false;
+      } catch (e) {
+        patchBtn.disabled = true;
+        setStatus("Error: " + e.message, "err");
+      }
+    }
+
+    fwInput.addEventListener("change", () => handleFile(fwInput.files[0]));
+    dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag"); });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
+    dropzone.addEventListener("drop", e => {
+      e.preventDefault();
+      dropzone.classList.remove("drag");
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    patchBtn.addEventListener("click", () => {
+      if (!stockBuf || !xorpatchBuf) return;
+      const dv = new DataView(xorpatchBuf.buffer, xorpatchBuf.byteOffset, xorpatchBuf.byteLength);
+      const stockPayloadLen = dv.getUint32(40, true);
+      const headerXor = xorpatchBuf.slice(44, 140);
+      const hookOff = dv.getUint32(140, true);
+      const hookXor = xorpatchBuf.slice(144, 152);
+      const bootLen = dv.getUint32(152, true);
+      const bootEnc = xorpatchBuf.slice(156, 156 + bootLen);
+      const footer = xorpatchBuf.slice(156 + bootLen, 156 + bootLen + 64);
+
+      const out = new Uint8Array(96 + stockPayloadLen + bootLen + 64);
+      // 1. Header = stock[0..96] XOR header_xor
+      for (let i = 0; i < 96; i++) out[i] = stockBuf[i] ^ headerXor[i];
+      // 2. Copy unchanged stock ciphertext payload + XOR the 8-byte hook block
+      out.set(stockBuf.slice(96, 96 + stockPayloadLen), 96);
+      for (let i = 0; i < 8; i++) out[hookOff + i] ^= hookXor[i];
+      // 3. Append encrypted mc-101-boot + updated 64-byte footer
+      out.set(bootEnc, 96 + stockPayloadLen);
+      out.set(footer, 96 + stockPayloadLen + bootLen);
+
+      const blob = new Blob([out], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "RPG69_C0A_up.bin";
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus(`Patched RPG69_C0A_up.bin (${out.length.toLocaleString()} bytes) downloaded!`, "ok");
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+mc107/build/
+*.elf
+*.o
+__pycache__/
+*.bin
+!docs/mc101-boot.xorpatch
