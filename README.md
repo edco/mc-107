@@ -1,7 +1,7 @@
 # MC-107 (8-Track + Sample Chop + Button Nav for Roland MC-101)
 
-> **WARNING — PRELIMINARY, UNTESTED CODE:**
-> This repository contains a clean-room `mc-101-boot` + `MC1P` v2 + `SDRAM0_FREE` build of MC-107. While all binaries and `.pat` files build and pass **host-side** verification checks, **this release has NOT yet been flashed or tested on MC-101 hardware**. Use at your own risk, and see [`ROADMAP.md`](ROADMAP.md) for the hardware test checklist.
+> **WARNING - Minimally tested code:**
+> This repository contains a clean-room `mc-101-boot` + `MC1P` v2 + `SDRAM0_FREE` build of MC-107. While all binaries and `.pat` files build and pass **host-side** verification checks, and have been tested on the author's hardware, there are likely to be some rough egdes. Use at your own risk, and see [`ROADMAP.md`](ROADMAP.md) for the hardware test checklist.
 
 Clean-room distribution of MC-107 for the Roland MC-101 (v1.82), powered by the `mc-101-boot` SD card bootloader and the `MC1P` v2 Patch SDK. **Contains zero Roland firmware bytes.**
 
@@ -26,13 +26,10 @@ Clean-room distribution of MC-107 for the Roland MC-101 (v1.82), powered by the 
 
 ## Quick Start (End Users)
 
-1. Open [`docs/index.html`](docs/index.html) (or your GitHub Pages deployment) and drop your stock v1.82 `RPG69_C0A_up.bin` to generate the bootloader-patched `RPG69_C0A_up.bin` locally in your browser.
-2. Flash `RPG69_C0A_up.bin` once (hold `[SHIFT]` at power-on), leaving `RPG69_C1A` stock.
-3. Copy to your SD card:
-   - `/firmware/firmware.ini`
-   - `/firmware/mc107/mc107-0.pat`
-   - `/firmware/mc107/mc107-1.pat`
-4. Power on normally to boot MC-107 (or hold `[MULTI FX]` at power-on for USB Mass Storage mode).
+1. Open the **[MC-107 Web Firmware Patcher](https://edco.github.io/mc-107/)** (served from [`docs/index.html`](docs/index.html)) and drop your stock v1.82 `RPG69_C0A_up.bin` to verify SHA-256 checksums and generate `mc107-sdcard.zip` locally in your browser.
+2. Unzip `mc107-sdcard.zip` directly to the root of your SD card (this places `RPG69_C0A_up.bin` at the root along with `/firmware/firmware.ini`, `/firmware/mc107/mc107-0.pat`, and `/firmware/mc107/mc107-1.pat`).
+3. Flash `RPG69_C0A_up.bin` once (hold `[SHIFT]` at power-on), leaving `RPG69_C1A` stock.
+4. Delete `RPG69_C0A_up.bin` from the SD card root, then power on normally to boot MC-107 (or hold `[MULTI FX]` at power-on for USB Mass Storage mode).
 
 ---
 
