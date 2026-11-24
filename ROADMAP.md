@@ -24,8 +24,8 @@ This document tracks the architecture, completed implementation, host verificati
 | **Core 0** | `SDRAM0_FREE` | `0x60F8_0000..0x60FF_FFFF` | **512 KiB** | Default Core 0 mod region; within `±16 MiB` of `App1_Main` (`bl`/`b.w` reachable directly). |
 | **Core 0** | `ITCM0_LO` | `0x0104_30A0..0x0105_0000` | **51.8 KiB** | Between stock ITCM0 end and MSP stack; requires 8-byte `ldr pc` veneer from `0x60xx_xxxx`. |
 | **Core 0** | `ITCM0_HI` | `0x0105_0800..0x0107_FFFF` | **190 KiB** | Above initial MSP stack (`0x0105_0800`); verify unused by RTOS task stacks on hardware. |
-| **Core 1** | `SDRAM1_FREE` | `0x6139_2000..0x616F_FFFF` | **~3.43 MiB** | Default Core 1 mod region (above `sdram1.bin` + relocated DSP `0x6139_1BC8`). |
-| **Core 1** | `C1_STAGING` | `0x6170_0000..0x617F_FFFF` | **1.0 MiB** | Temporary `mc-101-boot` Core 1 `.pat` staging buffer (untouched by `App1_Main` before Core 1 release; freed once Core 1 boots). |
+| **Core 1** | `SDRAM1_FREE` | `0x6139_2000..0x615F_FFFF` | **~2.43 MiB** | Default Core 1 mod region (above `sdram1.bin` + relocated DSP `0x6139_1BC8`; `0x6170_0000+` is used by `App1_Main`). |
+| **Core 1** | `C1_STAGING` | `0x6160_0000..0x616F_FFFF` | **1.0 MiB** | Temporary `mc-101-boot` Core 1 `.pat` staging buffer (untouched by `App1_Main` before Core 1 release; freed once Core 1 boots). |
 | **Core 1** | `ITCM1_FREE` | `0x0113_B084..0x0113_FFFF` | **~19.9 KiB** | Top of Core 1 ITCM1 above `idm1.bin`. |
 
 ### Potential Future Memory Map Gains

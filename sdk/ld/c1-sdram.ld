@@ -7,14 +7,15 @@
 
 /* Default Linker Script for MC-101 Core 1 Patches in Free SDRAM1 (0x6139_2000).
  *
- * - ~3.43 MiB contiguous SDRAM1 (0x6139_2000..0x616F_FFFF) above stock sdram1.bin
+ * - ~2.43 MiB contiguous SDRAM1 (0x6139_2000..0x615F_FFFF) above stock sdram1.bin
  *   and MC-107's relocated DSP program (0x6138_9FE0..0x6139_1BC8).
- * - Leaves `0x6170_0000..0x617F_FFFF` (1 MiB) free for mc-101-boot Core 1 patch staging.
+ * - Leaves `0x6160_0000..0x616F_FFFF` (1 MiB) free for mc-101-boot Core 1 patch staging
+ *   (`0x6170_0000+` is used by stock `App1_Main`).
  */
 
 MEMORY
 {
-    PATCH_SDRAM1 (rwx) : ORIGIN = 0x61392000, LENGTH = 0x0036E000
+    PATCH_SDRAM1 (rwx) : ORIGIN = 0x61392000, LENGTH = 0x0026E000
 }
 
 SECTIONS
