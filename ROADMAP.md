@@ -24,9 +24,15 @@ This document tracks the architecture, completed implementation, host verificati
 | **Core 0** | `SDRAM0_FREE` | `0x60F8_0000..0x60FF_FFFF` | **512 KiB** | Default Core 0 mod region; within `±16 MiB` of `App1_Main` (`bl`/`b.w` reachable directly). |
 | **Core 0** | `ITCM0_LO` | `0x0104_30A0..0x0105_0000` | **51.8 KiB** | Between stock ITCM0 end and MSP stack; requires 8-byte `ldr pc` veneer from `0x60xx_xxxx`. |
 | **Core 0** | `ITCM0_HI` | `0x0105_0800..0x0107_FFFF` | **190 KiB** | Above initial MSP stack (`0x0105_0800`); verify unused by RTOS task stacks on hardware. |
-| **Core 1** | `SDRAM1_FREE` | `0x6139_2000..0x615F_FFFF` | **~2.43 MiB** | Default Core 1 mod region (above `sdram1.bin` + relocated DSP `0x6139_1BC8`). |
-| **Core 1** | `C1_STAGING` | `0x6160_0000..0x617F_FFFF` | **2.0 MiB** | Temporary `mc-101-boot` Core 1 `.pat` staging buffer (freed once Core 1 releases). |
-| **Core 1** | `ITCM1_FREE` | `0x0113_B084..0x0113_FFFF` | **~20 KiB** | Top of Core 1 ITCM1 above `idm1.bin`. |
+| **Core 1** | `SDRAM1_FREE` | `0x6139_2000..0x617F_FFFF` | **~4.43 MiB** | Default Core 1 mod region (above `sdram1.bin` + relocated DSP `0x6139_1BC8`). |
+| **Core 1** | `C1_STAGING` | `0x61A0_0000..0x61EF_FFFF` | **5.0 MiB** | Temporary `mc-101-boot` `.pat` streaming/staging buffer (reuses `C1A_TEMP_BUF`; freed once Core 1 releases). |
+| **Core 1** | `ITCM1_FREE` | `0x0113_B084..0x0113_FFFF` | **~19.9 KiB** | Top of Core 1 ITCM1 above `idm1.bin`. |
+
+### Potential Future Memory Map Gains
+
+- **`ITCM0_HI` (`0x0105_0800..0x0107_FFFF`, `+190 KiB`)**: Above the initial Core 0 MSP stack up to the 512 KiB ITCM0 boundary (`0x0108_0000`). If hardware testing confirms RTOS task stacks reside in DTCM (`0x2000_0000+`) and leave `0x0105_0800..0x0107_FFFF` untouched, this adds **190 KiB** of zero-wait-state ITCM0.
+- **`SDRAM0_FREE` (below `0x60F8_0000`)**: `App1_Main_decrypted.bin` ends at `0x6035_65AF`, leaving `~12.1 MiB` (`0x6035_65B0..0x60F7_FFFF`) for BSS, RTOS heap, UI buffers, and Wave RAM. Mapping `App1_Main`'s allocator upper bound could expand `SDRAM0_FREE` downward from `0x60F8_0000` while staying within `±16 MiB` of `App1_Main` for direct `bl`/`b.w`.
+- **`ITCM1_FREE` (`0x0113_B084..0x0113_FFFF`, `~19.9 KiB`)**: Stock `idm1.bin` (`237 KiB`) fills `0x0110_0000..0x0113_B083` of the 256 KiB ITCM1, so this region is already essentially maxed out unless dead code/tables are carved out of `idm1.bin`.
 
 ---
 
