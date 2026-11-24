@@ -69,16 +69,12 @@
     }
     .btn:hover { background: var(--accent-hover); }
     .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-    .btn.secondary {
-      background: #252a38;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
     .status {
       margin-top: 1rem;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
       white-space: pre-wrap;
+      word-break: break-all;
       padding: 0.75rem;
       border-radius: 8px;
       background: #10131a;
@@ -92,7 +88,7 @@
       border-radius: 4px;
       font-size: 0.9em;
     }
-    ol { padding-left: 1.25rem; margin: 0.5rem 0 0; }
+    ul, ol { padding-left: 1.25rem; margin: 0.5rem 0 0; }
     li { margin-bottom: 0.4rem; }
   </style>
 </head>
@@ -104,33 +100,32 @@
     </p>
 
     <div class="card">
-      <h2>Step 1 — Patch Stock <code>RPG69_C0A_up.bin</code> with <code>mc-101-boot</code></h2>
+      <h2>Step 1 — Select Stock <code>RPG69_C0A_up.bin</code> &amp; Download SD Card ZIP</h2>
       <label class="dropzone" id="dropzone">
         <input type="file" id="fwFile" accept=".bin" />
         <div id="fileLabel">Click or drop stock <code>RPG69_C0A_up.bin</code> (3,499,600 bytes) here</div>
       </label>
       <div style="margin-top: 0.75rem;">
-        <button class="btn" id="patchBtn" disabled>Patch &amp; Download RPG69_C0A_up.bin</button>
+        <button class="btn" id="patchBtn" disabled>Patch &amp; Download mc107-sdcard.zip</button>
       </div>
       <div class="status" id="status">Waiting for stock RPG69_C0A_up.bin...</div>
     </div>
 
     <div class="card">
-      <h2>Step 2 — Download SD Card Runtime Files</h2>
+      <h2>Step 2 — Unzip to SD Card &amp; Flash Bootloader Once</h2>
       <p style="margin-top:0;color:var(--muted)">
-        Place these on your MC-101 SD card under <code>/firmware/</code>:
+        <code>mc107-sdcard.zip</code> contains:
       </p>
-      <a class="btn secondary" href="firmware.ini" download="firmware.ini">firmware.ini → /firmware/firmware.ini</a>
-      <a class="btn secondary" href="mc107-0.pat" download="mc107-0.pat">mc107-0.pat → /firmware/mc107/mc107-0.pat</a>
-      <a class="btn secondary" href="mc107-1.pat" download="mc107-1.pat">mc107-1.pat → /firmware/mc107/mc107-1.pat</a>
-    </div>
-
-    <div class="card">
-      <h2>Step 3 — Flash Bootloader Once &amp; Boot MC-107</h2>
-      <ol>
-        <li>Copy the patched <code>RPG69_C0A_up.bin</code> to the root of your SD card.</li>
+      <ul>
+        <li><code>/firmware/firmware.ini</code></li>
+        <li><code>/firmware/mc107/mc107-0.pat</code></li>
+        <li><code>/firmware/mc107/mc107-1.pat</code></li>
+        <li><code>RPG69_C0A_up.bin</code> (verified patched Core 0 bootloader)</li>
+      </ul>
+      <ol style="margin-top:0.75rem;">
+        <li>Simply <strong>unzip <code>mc107-sdcard.zip</code></strong> directly to the root of your MC-101 SD card.</li>
         <li>Hold <code>[SHIFT]</code> while powering on to flash <code>RPG69_C0A_up.bin</code> (leave <code>RPG69_C1A</code> stock).</li>
-        <li>Delete <code>RPG69_C0A_up.bin</code> from the SD root, then power on normally to boot MC-107 from <code>/firmware/</code>.</li>
+        <li>Delete <code>RPG69_C0A_up.bin</code> from the SD card root, then power on normally to boot MC-107.</li>
         <li>Hold <code>[PROJECT]</code> at power-on anytime to enter high-speed USB Mass Storage mode for SD card updates.</li>
       </ol>
     </div>
@@ -145,6 +140,7 @@
 
     let stockBuf = null;
     let xorpatchBuf = null;
+    let inputShaHex = "";
 
     function setStatus(msg, cls = "") {
       statusEl.className = "status " + cls;
@@ -155,12 +151,91 @@
       return Array.from(u8).map(b => b.toString(16).padStart(2, "0")).join("");
     }
 
+    async function sha256Hex(u8) {
+      return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", u8)));
+    }
+
+    const CRC_TABLE = (() => {
+      const t = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        t[i] = c >>> 0;
+      }
+      return t;
+    })();
+
+    function crc32(u8) {
+      let c = 0xffffffff;
+      for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xff] ^ (c >>> 8);
+      return (c ^ 0xffffffff) >>> 0;
+    }
+
+    // Minimal uncompressed (STORE) ZIP builder — zero external dependencies.
+    function buildZip(entries) {
+      const enc = new TextEncoder();
+      const locals = [];
+      const centrals = [];
+      let offset = 0;
+
+      for (const { name, data } of entries) {
+        const nameBytes = enc.encode(name);
+        const crc = crc32(data);
+
+        const lh = new Uint8Array(30 + nameBytes.length);
+        const ldv = new DataView(lh.buffer);
+        ldv.setUint32(0, 0x04034b50, true);
+        ldv.setUint16(4, 20, true);
+        ldv.setUint16(8, 0, true); // STORE
+        ldv.setUint32(14, crc, true);
+        ldv.setUint32(18, data.length, true);
+        ldv.setUint32(22, data.length, true);
+        ldv.setUint16(26, nameBytes.length, true);
+        lh.set(nameBytes, 30);
+        locals.push(lh, data);
+
+        const ch = new Uint8Array(46 + nameBytes.length);
+        const cdv = new DataView(ch.buffer);
+        cdv.setUint32(0, 0x02014b50, true);
+        cdv.setUint16(4, 20, true);
+        cdv.setUint16(6, 20, true);
+        cdv.setUint16(10, 0, true); // STORE
+        cdv.setUint32(16, crc, true);
+        cdv.setUint32(20, data.length, true);
+        cdv.setUint32(24, data.length, true);
+        cdv.setUint16(28, nameBytes.length, true);
+        cdv.setUint32(42, offset, true);
+        ch.set(nameBytes, 46);
+        centrals.push(ch);
+
+        offset += lh.length + data.length;
+      }
+
+      const cdSize = centrals.reduce((s, b) => s + b.length, 0);
+      const eocd = new Uint8Array(22);
+      const edv = new DataView(eocd.buffer);
+      edv.setUint32(0, 0x06054b50, true);
+      edv.setUint16(8, entries.length, true);
+      edv.setUint16(10, entries.length, true);
+      edv.setUint32(12, cdSize, true);
+      edv.setUint32(16, offset, true);
+
+      return new Blob([...locals, ...centrals, eocd], { type: "application/zip" });
+    }
+
+    async function fetchBytes(path) {
+      const resp = await fetch(path);
+      if (!resp.ok) throw new Error(`Failed to fetch ${path} (${resp.status})`);
+      return new Uint8Array(await resp.arrayBuffer());
+    }
+
     async function loadXorpatch() {
-      const resp = await fetch("mc101-boot.xorpatch");
-      if (!resp.ok) throw new Error("Failed to fetch mc101-boot.xorpatch (" + resp.status + ")");
-      xorpatchBuf = new Uint8Array(await resp.arrayBuffer());
+      xorpatchBuf = await fetchBytes("mc101-boot.xorpatch");
       const magic = String.fromCharCode(...xorpatchBuf.slice(0, 4));
       if (magic !== "MC1X") throw new Error("Invalid xorpatch magic: " + magic);
+      const dv = new DataView(xorpatchBuf.buffer, xorpatchBuf.byteOffset, xorpatchBuf.byteLength);
+      const ver = dv.getUint16(4, true);
+      if (ver !== 2) throw new Error("Unsupported MC1X version: " + ver);
     }
 
     async function handleFile(file) {
@@ -169,20 +244,25 @@
       stockBuf = new Uint8Array(await file.arrayBuffer());
       try {
         if (!xorpatchBuf) await loadXorpatch();
-        const dv = new DataView(xorpatchBuf.buffer, xorpatchBuf.byteOffset, xorpatchBuf.byteLength);
-        const expSha = toHex(xorpatchBuf.slice(8, 40));
-        const gotSha = toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", stockBuf)));
-        if (gotSha !== expSha) {
+        const expInSha = toHex(xorpatchBuf.slice(8, 40));
+        const expOutSha = toHex(xorpatchBuf.slice(40, 72));
+        inputShaHex = await sha256Hex(stockBuf);
+        if (inputShaHex !== expInSha) {
           patchBtn.disabled = true;
           setStatus(
-            `SHA-256 mismatch!\nExpected stock v1.82 RPG69_C0A_up.bin:\n  ${expSha}\nGot:\n  ${gotSha}`,
+            `Input SHA-256 MISMATCH!\n` +
+            `  Expected input : ${expInSha}\n` +
+            `  Actual input   : ${inputShaHex}`,
             "err"
           );
           return;
         }
-        const bootLen = dv.getUint32(152, true);
+        const dv = new DataView(xorpatchBuf.buffer, xorpatchBuf.byteOffset, xorpatchBuf.byteLength);
+        const bootLen = dv.getUint32(184, true);
         setStatus(
-          `Verified stock MC-101 v1.82 RPG69_C0A_up.bin (SHA-256 OK).\nReady to apply mc-101-boot (${bootLen.toLocaleString()} B).`,
+          `Input SHA-256  : ${inputShaHex} (MATCH)\n` +
+          `Expected output: ${expOutSha}\n` +
+          `Ready to apply mc-101-boot (${bootLen.toLocaleString()} B) and build mc107-sdcard.zip.`,
           "ok"
         );
         patchBtn.disabled = false;
@@ -201,35 +281,70 @@
       handleFile(e.dataTransfer.files[0]);
     });
 
-    patchBtn.addEventListener("click", () => {
+    patchBtn.addEventListener("click", async () => {
       if (!stockBuf || !xorpatchBuf) return;
-      const dv = new DataView(xorpatchBuf.buffer, xorpatchBuf.byteOffset, xorpatchBuf.byteLength);
-      const stockPayloadLen = dv.getUint32(40, true);
-      const headerXor = xorpatchBuf.slice(44, 140);
-      const hookOff = dv.getUint32(140, true);
-      const hookXor = xorpatchBuf.slice(144, 152);
-      const bootLen = dv.getUint32(152, true);
-      const bootEnc = xorpatchBuf.slice(156, 156 + bootLen);
-      const footer = xorpatchBuf.slice(156 + bootLen, 156 + bootLen + 64);
+      patchBtn.disabled = true;
+      try {
+        const dv = new DataView(xorpatchBuf.buffer, xorpatchBuf.byteOffset, xorpatchBuf.byteLength);
+        const expOutSha = toHex(xorpatchBuf.slice(40, 72));
+        const stockPayloadLen = dv.getUint32(72, true);
+        const headerXor = xorpatchBuf.slice(76, 172);
+        const hookOff = dv.getUint32(172, true);
+        const hookXor = xorpatchBuf.slice(176, 184);
+        const bootLen = dv.getUint32(184, true);
+        const bootEnc = xorpatchBuf.slice(188, 188 + bootLen);
+        const footer = xorpatchBuf.slice(188 + bootLen, 188 + bootLen + 64);
 
-      const out = new Uint8Array(96 + stockPayloadLen + bootLen + 64);
-      // 1. Header = stock[0..96] XOR header_xor
-      for (let i = 0; i < 96; i++) out[i] = stockBuf[i] ^ headerXor[i];
-      // 2. Copy unchanged stock ciphertext payload + XOR the 8-byte hook block
-      out.set(stockBuf.slice(96, 96 + stockPayloadLen), 96);
-      for (let i = 0; i < 8; i++) out[hookOff + i] ^= hookXor[i];
-      // 3. Append encrypted mc-101-boot + updated 64-byte footer
-      out.set(bootEnc, 96 + stockPayloadLen);
-      out.set(footer, 96 + stockPayloadLen + bootLen);
+        const out = new Uint8Array(96 + stockPayloadLen + bootLen + 64);
+        for (let i = 0; i < 96; i++) out[i] = stockBuf[i] ^ headerXor[i];
+        out.set(stockBuf.slice(96, 96 + stockPayloadLen), 96);
+        for (let i = 0; i < 8; i++) out[hookOff + i] ^= hookXor[i];
+        out.set(bootEnc, 96 + stockPayloadLen);
+        out.set(footer, 96 + stockPayloadLen + bootLen);
 
-      const blob = new Blob([out], { type: "application/octet-stream" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "RPG69_C0A_up.bin";
-      a.click();
-      URL.revokeObjectURL(url);
-      setStatus(`Patched RPG69_C0A_up.bin (${out.length.toLocaleString()} bytes) downloaded!`, "ok");
+        const outShaHex = await sha256Hex(out);
+        if (outShaHex !== expOutSha) {
+          setStatus(
+            `Output SHA-256 MISMATCH! Aborting download.\n` +
+            `  Input SHA-256   : ${inputShaHex} (MATCH)\n` +
+            `  Expected output : ${expOutSha}\n` +
+            `  Actual output   : ${outShaHex}`,
+            "err"
+          );
+          return;
+        }
+
+        const [iniBytes, pat0Bytes, pat1Bytes] = await Promise.all([
+          fetchBytes("firmware.ini"),
+          fetchBytes("mc107-0.pat"),
+          fetchBytes("mc107-1.pat"),
+        ]);
+
+        const zipBlob = buildZip([
+          { name: "firmware/firmware.ini", data: iniBytes },
+          { name: "firmware/mc107/mc107-0.pat", data: pat0Bytes },
+          { name: "firmware/mc107/mc107-1.pat", data: pat1Bytes },
+          { name: "RPG69_C0A_up.bin", data: out },
+        ]);
+
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "mc107-sdcard.zip";
+        a.click();
+        URL.revokeObjectURL(url);
+
+        setStatus(
+          `Input SHA-256  : ${inputShaHex} (MATCH)\n` +
+          `Output SHA-256 : ${outShaHex} (MATCH)\n` +
+          `Built mc107-sdcard.zip (${zipBlob.size.toLocaleString()} bytes) — unzip to your SD card root.`,
+          "ok"
+        );
+      } catch (e) {
+        setStatus("Error: " + e.message, "err");
+      } finally {
+        patchBtn.disabled = false;
+      }
     });
   </script>
 </body>
