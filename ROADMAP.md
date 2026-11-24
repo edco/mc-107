@@ -1,6 +1,6 @@
 # MC-107 Roadmap, Verification, Assumptions & Hardware Test Plan
 
-> **Status:** Preliminary, host-verified only — **untested on MC-101 hardware** in its `mc-101-boot` + `MC1P` v2 + `SDRAM0_FREE` form.
+> **Status:** Core 0 (`mc107-0.pat` in `SDRAM0_FREE`), Core 1 (`mc107-1.pat` via `c1a_stub.rs`), the web patcher (`docs/index.html`), 8-track + downmix stereo USB audio, and the extended Drum Pad Edit menu are **hardware-verified** on MC-101 v1.82. `[PROJECT]` USB Mass Storage mode, `SMPL CHOP`, `WMT1–4`, and Button Nav still need on-device spot-checks.
 
 This document tracks the architecture, completed implementation, host verification results, assumptions, and remaining on-device hardware testing for `mc-107` and `mc-101-boot`.
 
@@ -97,15 +97,15 @@ This document tracks the architecture, completed implementation, host verificati
 
 ## Remaining Work (Requires On-Device Hardware Testing)
 
-Collaborators with hardware can split and verify these items in parallel:
+Collaborators with hardware can split and verify the remaining items in parallel:
 
-1. **Web Patcher (`docs/index.html`) + Bootloader Flash**:
-   - Feed stock v1.82 `RPG69_C0A_up.bin` into `docs/index.html`, flash via `[SHIFT]` + power-on (leaving `RPG69_C1A` stock), and verify `mc-101-boot` boots stock `App1_Main` cleanly.
-2. **`[PROJECT]` USB Mass Storage Mode**:
+1. **Web Patcher (`docs/index.html`) + Bootloader Flash** — **VERIFIED ON HARDWARE**:
+   - Generated `mc107-sdcard.zip` from stock v1.82 `RPG69_C0A_up.bin`, flashed via `[SHIFT]` + power-on (with `RPG69_C1A` stock), and booted `mc-101-boot`.
+2. **`[PROJECT]` USB Mass Storage Mode** — *pending hardware test*:
    - Hold `[PROJECT]` on power-on and verify host USB enumeration, SD card read/write integrity (`PING_PONG` at `0x6100_0000`), and clean reset/eject.
-3. **`MC1P` v2 SD-Card Boot of MC-107 (`mc107-0.pat` + `mc107-1.pat`)**:
-   - Verify Core 0 boots with `mc107-0.pat` applied to `SDRAM0_FREE` (`0x60F8_0000..0x60FC_3300`) and test 8-track UI, `sample_chop.c`, `button_nav.c`, Drum Pad Edit, and WMT1–4 features.
-   - Verify Core 1 boots via `c1a_stub.rs` staging (`0x6160_0000`), `mc107-1.pat` applies cleanly, and 8-track audio output / `RecSource` / `ScatterPos` routing / 20-channel USB audio work on hardware.
+3. **`MC1P` v2 SD-Card Boot of MC-107 (`mc107-0.pat` + `mc107-1.pat`)** — **PARTIALLY VERIFIED ON HARDWARE**:
+   - **Verified**: Core 0 (`SDRAM0_FREE` `0x60F8_0000..0x60FC_3300`) and Core 1 (`c1a_stub.rs` staging `0x6160_0000`) both boot with patches applied; full 8-track + downmix stereo USB audio and extended Drum Pad Edit menu confirmed working.
+   - **Pending spot-checks**: `sample_chop.c` (`SMPL CHOP`), `button_nav.c` (Button Nav), `WMT1–4` per-layer WAV/Sample Edit, and `RecSource` / `ScatterPos` routing.
 
 ---
 
