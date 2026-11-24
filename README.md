@@ -26,6 +26,8 @@ Clean-room distribution of MC-107 for the Roland MC-101 (v1.82), powered by the 
 
 ## Quick Start (End Users)
 
+> **Prerequisites & Reverting:** Your MC-101 must already be fully updated to **stock Roland firmware v1.82** before installing MC-107. You can revert to stock v1.82 at any time by flashing the unmodified stock firmware files (`RPG69_C0A_up.bin` / `RPG69_C1A_up.bin`) using the standard `[SHIFT]` + power-on firmware update method.
+
 1. Open the **[MC-107 Web Firmware Patcher](https://edco.github.io/mc-107/)** (served from [`docs/index.html`](docs/index.html)) and drop your stock v1.82 `RPG69_C0A_up.bin` to verify SHA-256 checksums and generate `mc107-sdcard.zip` locally in your browser.
 2. Unzip `mc107-sdcard.zip` directly to the root of your SD card (this places `RPG69_C0A_up.bin` at the root along with `/firmware/firmware.ini`, `/firmware/mc107/mc107-0.pat`, and `/firmware/mc107/mc107-1.pat`).
 3. Flash `RPG69_C0A_up.bin` once (hold `[SHIFT]` at power-on), leaving `RPG69_C1A` stock.
