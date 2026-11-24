@@ -1,6 +1,6 @@
 # MC-107 Roadmap, Verification, Assumptions & Hardware Test Plan
 
-> **Status:** Core 0 (`mc107-0.pat` in `SDRAM0_FREE`), Core 1 (`mc107-1.pat` via `c1a_stub.rs`), the web patcher (`docs/index.html`), 8-track + downmix stereo USB audio, and the extended Drum Pad Edit menu are **hardware-verified** on MC-101 v1.82. `[PROJECT]` USB Mass Storage mode, `SMPL CHOP`, `WMT1–4`, and Button Nav still need on-device spot-checks.
+> **Status:** Core 0 (`mc107-0.pat` in `SDRAM0_FREE`), Core 1 (`mc107-1.pat` via `c1a_stub.rs`), the web patcher (`docs/index.html`), 8-track + downmix stereo USB audio, and the extended Drum Pad Edit menu are **hardware-verified** on MC-101 v1.82. `[MULTI FX]` USB Mass Storage mode, `SMPL CHOP`, `WMT1–4`, and Button Nav still need on-device spot-checks.
 
 This document tracks the architecture, completed implementation, host verification results, assumptions, and remaining on-device hardware testing for `mc-107` and `mc-101-boot`.
 
@@ -58,7 +58,7 @@ This document tracks the architecture, completed implementation, host verificati
 ### Phase 1: `mc-101-boot`
 - [x] Upgraded `MC1P` to v2 in `mc-101-boot/shared/src/firmware_cfg.rs` and `mc-101-boot/core0/src/c1a_stub.rs`.
 - [x] Raised `PATCH_BUF` in `core0/src/main.rs` from `32 KiB` → `64 KiB` (SRAM0) and moved `STAGED_PATCH_ADDR` in `c1a_stub.rs` from `0x602D_2C00` (`5 KiB`) → `0x6160_0000` (`2 MiB`).
-- [x] Added `[PROJECT]` USB Mass Storage mode (`usb.rs`, `msc.rs` with ping-pong buffers at `0x6100_0000` in SDRAM, `time.rs`, `sd.rs`, `button::PROJECT` boot check).
+- [x] Added `[MULTI FX]` USB Mass Storage mode (`usb.rs`, `msc.rs` with ping-pong buffers at `0x6100_0000` in SDRAM, `time.rs`, `sd.rs`, `button::MULTI_FX` boot check).
 - [ ] Minimal SD-boot anti-flash-read patch (`RPG69_C0A` `TEST MENU` CRC at `0x6004_F46C` — optional; normal runtime never reads `RPG69_C0A`, and `RPG69_C1A` is already intercepted by `c1a_stub.rs`).
 - [x] Removed unused `mc-1r1` leftovers (`PLAN.md`, `USB_STORAGE_HW.md`, `DISPLAY.md`) and legacy v1 `xtask` code; `mc-101-boot` builds with zero compiler warnings.
 
@@ -107,8 +107,8 @@ Collaborators with hardware can split and verify the remaining items in parallel
 
 1. **Web Patcher (`docs/index.html`) + Bootloader Flash** — **VERIFIED ON HARDWARE**:
    - Generated `mc107-sdcard.zip` from stock v1.82 `RPG69_C0A_up.bin`, flashed via `[SHIFT]` + power-on (with `RPG69_C1A` stock), and booted `mc-101-boot`.
-2. **`[PROJECT]` USB Mass Storage Mode** — *pending hardware test*:
-   - Hold `[PROJECT]` on power-on and verify host USB enumeration, SD card read/write integrity (`PING_PONG` at `0x6100_0000`), and clean reset/eject.
+2. **`[MULTI FX]` USB Mass Storage Mode** — *pending hardware test*:
+   - Hold `[MULTI FX]` on power-on and verify host USB enumeration, SD card read/write integrity (`PING_PONG` at `0x6100_0000`), and clean reset/eject.
 3. **`MC1P` v2 SD-Card Boot of MC-107 (`mc107-0.pat` + `mc107-1.pat`)** — **PARTIALLY VERIFIED ON HARDWARE**:
    - **Verified**: Core 0 (`SDRAM0_FREE` `0x60F8_0000..0x60FC_3300`) and Core 1 (`c1a_stub.rs` staging `0x6160_0000`) both boot with patches applied; full 8-track + downmix stereo USB audio and extended Drum Pad Edit menu confirmed working.
    - **Pending spot-checks**: `sample_chop.c` (`SMPL CHOP`), `button_nav.c` (Button Nav), `WMT1–4` per-layer WAV/Sample Edit, and `RecSource` / `ScatterPos` routing.

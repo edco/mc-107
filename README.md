@@ -32,7 +32,7 @@ Clean-room distribution of MC-107 for the Roland MC-101 (v1.82), powered by the 
    - `/firmware/firmware.ini`
    - `/firmware/mc107/mc107-0.pat`
    - `/firmware/mc107/mc107-1.pat`
-4. Power on normally to boot MC-107 (or hold `[PROJECT]` at power-on for USB Mass Storage mode).
+4. Power on normally to boot MC-107 (or hold `[MULTI FX]` at power-on for USB Mass Storage mode).
 
 ---
 
