@@ -38,6 +38,7 @@ typedef struct {
 
 #define FW_BTN_BITMAP           ((const volatile uint8_t *)0x605C40B0u)
 #define FW_LED_MGR              ((void *)0x605C4E10u)
+#define CUR_TRACK_VAR           (*(const volatile uint32_t *)0x60FC03FCu)
 
 /* Event types */
 #define EV_BTN_DOWN     5
@@ -48,6 +49,8 @@ typedef struct {
 #define KEY_SHIFT       0x00
 #define KEY_MEAS_L      0x03
 #define KEY_MEAS_R      0x04
+#define KEY_SEL_FIRST   0x06
+#define KEY_SEL_LAST    0x09
 #define KEY_TEMPO       0x0F
 #define KEY_EXIT        0x10
 #define KEY_ENTER       0x11
@@ -71,8 +74,11 @@ typedef struct {
     uint8_t  tempo_mapped;     /* +0x04: 1 = TEMPO down was rewritten to ENTER; match its release */
     uint8_t  suppress_l_up;    /* +0x05: 1 = SHIFT+'<' exited Nav Mode; swallow '<' release */
     uint8_t  pad0[2];
-    uint32_t hold_r_start_ms;  /* +0x08 */
-    uint32_t rep_next_ms;      /* +0x0C */
+    uint32_t hold_r_start_ms;   /* +0x08 */
+    uint32_t rep_next_ms;       /* +0x0C */
+    uint8_t  allow_bank_toggle; /* +0x10: 1 = allow resolve_sel_track to toggle bank */
+    uint8_t  pending_sel_key;   /* +0x11: SEL1..4 key if last btn/pad event was its Down on cur track */
+    uint8_t  pad1[2];
 } NavState;
 
 __attribute__((section(".nav_state"))) NavState g_nav;
@@ -159,6 +165,28 @@ void nav_dispatch_event(UiEvent *ev) {
 
     int16_t type = ev->type;
     int16_t key  = ev->arg1;
+
+    /* Release-to-toggle bank switching for SEL1..4 (0x06..0x09):
+     * Only toggle on SEL-N Up if the immediately preceding button/pad event
+     * was SEL-N Down while N was already the selected track. */
+    if (type == EV_BTN_DOWN) {
+        if (key >= KEY_SEL_FIRST && key <= KEY_SEL_LAST &&
+            (CUR_TRACK_VAR & 3u) == (uint32_t)(key - KEY_SEL_FIRST)) {
+            g_nav.pending_sel_key = (uint8_t)key;
+        } else {
+            g_nav.pending_sel_key = 0u;
+        }
+    } else if (type == EV_BTN_UP) {
+        if (key >= KEY_SEL_FIRST && key <= KEY_SEL_LAST &&
+            key == (int16_t)g_nav.pending_sel_key) {
+            g_nav.pending_sel_key = 0u;
+            g_nav.allow_bank_toggle = 1u;
+            dispatch_btn(EV_BTN_DOWN, key);
+            g_nav.allow_bank_toggle = 0u;
+        } else {
+            g_nav.pending_sel_key = 0u;
+        }
+    }
 
     /* Always match TEMPO->ENTER release even if Nav Mode just exited */
     if (type == EV_BTN_UP && key == KEY_TEMPO && g_nav.tempo_mapped) {

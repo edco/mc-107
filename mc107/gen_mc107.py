@@ -605,6 +605,13 @@ resolve_sel_track:
     cmp     r0, #0x36
     bne     2f
 1:
+    movw    r0, #0x0010
+    movt    r0, #0x60fb
+    ldrb    r1, [r0]
+    cmp     r1, #0
+    beq     2f
+    movs    r1, #0
+    strb    r1, [r0]
     eor.w   r6, r6, #4
 2:
     adds    r4, r6, #6
