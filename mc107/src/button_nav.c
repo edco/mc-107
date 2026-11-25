@@ -32,6 +32,7 @@ typedef struct {
 #define fw_ui_drain_queue       FW_FN(void     (*)(void),                  0x6001DE38u)
 #define fw_post_dial            FW_FN(void     (*)(int, int),              0x6001D974u)
 #define fw_get_ms               FW_FN(uint32_t (*)(void),                  0x6001CC50u)
+#define fw_get_active_screen    FW_FN(int      (*)(void),                  0x6001CC44u)
 #define fw_is_btn_pressed       FW_FN(int      (*)(int),                   0x6001CBD8u)
 #define fw_set_led              FW_FN(void     (*)(int, int, int),         0x6001E6B8u)
 #define fw_led_refresh_all      FW_FN(void     (*)(void *),                0x60097A02u)
@@ -87,6 +88,22 @@ static int any_btn_held(void) {
     /* Keys 0..47 live in bytes 0..5 of the global pressed-key bitmap at 0x605C40B0 */
     for (int i = 0; i < 6; i++) {
         if (FW_BTN_BITMAP[i] != 0u) return 1;
+    }
+    return 0;
+}
+
+static int other_btn_held_for_sel(int key) {
+    /* Return 1 if any button other than `key` (and KEY_SHIFT on Screen 0x36) is held */
+    int allow_shift = (fw_get_active_screen() == 0x36);
+    for (int i = 0; i < 6; i++) {
+        uint8_t b = FW_BTN_BITMAP[i];
+        if (i == (key >> 3)) {
+            b &= (uint8_t)~(1u << (key & 7));
+        }
+        if (i == 0 && allow_shift) {
+            b &= (uint8_t)~(1u << KEY_SHIFT);
+        }
+        if (b != 0u) return 1;
     }
     return 0;
 }
@@ -171,7 +188,8 @@ void nav_dispatch_event(UiEvent *ev) {
      * was SEL-N Down while N was already the selected track. */
     if (type == EV_BTN_DOWN) {
         if (key >= KEY_SEL_FIRST && key <= KEY_SEL_LAST &&
-            (CUR_TRACK_VAR & 3u) == (uint32_t)(key - KEY_SEL_FIRST)) {
+            (CUR_TRACK_VAR & 3u) == (uint32_t)(key - KEY_SEL_FIRST) &&
+            !other_btn_held_for_sel(key)) {
             g_nav.pending_sel_key = (uint8_t)key;
         } else {
             g_nav.pending_sel_key = 0u;
