@@ -95,8 +95,9 @@ This document tracks the architecture, completed implementation, host verificati
 
 ## Implementation Assumptions
 
-- **USB MSC ping-pong buffer in SDRAM (`0x6100_0000`)**: `msc.rs` ping-pong buffers are placed in SDRAM so `PATCH_BUF` can remain `64 KiB` in `SRAM0`. Assumes USB DMA can target `0x6100_0000` safely prior to `App1` launch.
-- **Core 1 staging buffer at `0x6160_0000`**: `STAGED_PATCH_ADDR` uses `0x6160_0000..0x617F_FFFF` (`2 MiB`) so `SDRAM1_FREE` (`0x6139_2000..0x615F_FFFF`) remains contiguous for Core 1 patches.
+- **USB MSC buffers in Core 0 SDRAM (`0x6010_0000..0x6012_0200`)**: `msc.rs` `PING_PONG` (`128 KiB` at `0x6010_0000`) and `usb.rs` `USB_DMA_BUF_SDRAM` (`512 B` at `0x6012_0000`) live in Core 0 SDRAM so `DMAC0` never targets `SRAM0` (`0x2000_xxxx`); Storage Mode never boots `App1_Main`.
+- **Core 0 `.pat` streaming via `0x61A0_0000`**: `apply_c0a_patch` streams `.pat` files up to `5 MiB` into `C1A_TEMP_BUF` before `App1_Main` launches.
+- **Core 1 staging buffer at `0x6160_0000`**: `STAGED_PATCH_ADDR` uses `0x6160_0000..0x616F_FFFF` (`1 MiB`, untouched by `App1_Main`; `0x6170_0000+` is referenced by `App1_Main`), leaving `SDRAM1_FREE` (`0x6139_2000..0x615F_FFFF`) contiguous for Core 1 patches.
 - **Optional `RPG69_C0A` `TEST MENU` CRC (`0x6004_F46C`)**: Left unpatched because normal runtime never reads `RPG69_C0A` from flash, and `RPG69_C1A` flash reads are intercepted by `c1a_stub.rs`.
 
 ---
@@ -107,8 +108,8 @@ Collaborators with hardware can split and verify the remaining items in parallel
 
 1. **Web Patcher (`docs/index.html`) + Bootloader Flash** — **VERIFIED ON HARDWARE**:
    - Generated `mc107-sdcard.zip` from stock v1.82 `RPG69_C0A_up.bin`, flashed via `[SHIFT]` + power-on (with `RPG69_C1A` stock), and booted `mc-101-boot`.
-2. **`[MULTI FX]` USB Mass Storage Mode** — *pending hardware test*:
-   - Hold `[MULTI FX]` on power-on and verify host USB enumeration, SD card read/write integrity (`PING_PONG` at `0x6100_0000`), and clean reset/eject.
+2. **`[MULTI FX]` USB Mass Storage Mode** — **VERIFIED ON HARDWARE**:
+   - Hold `[MULTI FX]` on power-on; enumerates and mounts after fixing `USB_INT_STAT` bit 26 (`SOF` 8 kHz storm) / bit 30 (`SET_CONFIG`) / bit 25 (`SUSPEND`) and placing `PING_PONG` (`0x6010_0000`) + `USB_DMA_BUF_SDRAM` (`0x6012_0000`) in Core 0 SDRAM.
 3. **`MC1P` v2 SD-Card Boot of MC-107 (`mc107-0.pat` + `mc107-1.pat`)** — **PARTIALLY VERIFIED ON HARDWARE**:
    - **Verified**: Core 0 (`SDRAM0_FREE` `0x60F8_0000..0x60FC_3300`) and Core 1 (`c1a_stub.rs` staging `0x6160_0000`) both boot with patches applied; full 8-track + downmix stereo USB audio and extended Drum Pad Edit menu confirmed working.
    - **Pending spot-checks**: `sample_chop.c` (`SMPL CHOP`), `button_nav.c` (Button Nav), `WMT1–4` per-layer WAV/Sample Edit, and `RecSource` / `ScatterPos` routing.
